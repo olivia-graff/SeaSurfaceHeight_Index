@@ -1,0 +1,98 @@
+%Can easily do this in a loop 
+
+clear all; close all;
+
+load('/net/home_stu/ograff/latlon_index.mat'); 
+load('/net/home_stu/ograff/bathymetry_index.mat'); 
+%monthly switches 
+djf = 1; mam = 0; jja = 0;son = 0;annual = 0; 
+savevar = 1; 
+
+%month = [1,2,3]; 
+yearstart = 1993;yearend = 2018; 
+num_years = yearend-yearstart +1;
+timeperiod = " 1993 - 2018"; 
+
+if djf == 1 
+    lenmonth = [31,31,29]; %num_years = num_years-1;     
+    aa_monthvar = "DJF";
+    yearend = yearend-1; 
+    timeperiod = " 1993 - 2017"; 
+    num_years = num_years-1; 
+elseif mam == 1
+    lenmonth = [31,30,31]; 
+    aa_monthvar = "MAM";
+elseif jja == 1
+    lenmonth = [30,31,31]; 
+    aa_monthvar = "JJA";
+elseif son == 1
+    lenmonth = [30,31,30]; 
+    aa_monthvar = "SON";
+elseif annual == 1
+    lenmonth = [31,29,31,30,31,30,31,31,30,31,30,31];
+    aa_monthvar = "Annual";
+end
+
+time_size = num_years;
+moend = cumsum(lenmonth);lenseason = moend(end);%mostart = [1,moend(1)+1, moend(2)+1];
+
+load('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar+'/ssh.mat','perseasonmean_ssh'); 
+load('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar+'/sshgradient.mat','perseasonmean_sshgrad'); 
+
+%Bathymetry contour 
+[c,~] = contour(lon_area,lat_area,elev',[-1000 -1000],'LineStyle','none');
+
+% DJF Index 
+index_ssh=[];
+star = [];
+for i = 1:time_size
+    ssh_index_temp = [];
+    B = [];
+    for n = 1:max(size(lon_area))
+        max_lat = find(perseasonmean_sshgrad(n,:,i) == (max(perseasonmean_sshgrad(n,:,i))));
+        lm = lat_area(max_lat);
+        x = max(size(max_lat));
+        %matrix of max latitudes for each longitude
+        ssh_index_temp = [ssh_index_temp;lm(1:x)];
+        star = [star;lm(1:x)];
+        %Bathymetry
+        val = find(c(1,:) == lon_area(n,:)); %returns indexes of numbers
+        maxlat = find(c(2,val) == max(c(2,val)));%returns which index gives max lat
+        % need to store c(2,val(whatever index maxlat says it is))
+        latchoose= c(2,val(maxlat));
+        x1 = max(size(maxlat));
+        B = [B;latchoose];
+    end
+    latdiffssh = 0;
+    latdiffssh = ssh_index_temp-B;
+    index_ssh = [index_ssh;mean(latdiffssh,1)];
+end
+figure(2); 
+ts_ssh = timeseries(index_ssh(:,1),yearstart:yearend);     
+%subplot(4,1,4);
+plot(ts_ssh, '-^', 'MarkerFaceColor','r');ylim([-2 0]);
+xlabel('Years '+timeperiod);ylabel('Δ Latitude');title('Mean Seasonal Meridional Displacement of the Kuroshio Axis - SSH - (133-140; '+aa_monthvar+')');
+
+%for plotting 
+starshift = 0;
+figure(14);
+load coast;
+for i = 1:num_years
+    
+    hold on;pcolor(lon_area,lat_area,perseasonmean_sshgrad(:,:,i)'); shading flat; colorbar;caxis([0 140]);% axis([130 145 28 36]);
+    %colormap(brewermap(10,'BuGn'));
+    hold on;[C,h] = contour(lon_area,lat_area,perseasonmean_ssh(:,:,i)','LineStyle', '-','LineColor','black', 'LineWidth',2); shading flat; colorbar; clabel(C,h);%axis([130 145 28 36]);%axis([125 180 26 50]);
+    %hold on;plot(Lonbath2,B, 'r-','LineWidth',5); %plots max of bathymetry line
+    hold on;[C,h] = contour(lon_area,lat_area,elev', [-1000 -1000], 'r-','LineWidth',5); shading flat;%clabel(C,h);%plot(long,lat,'black');% axis([310 325 28 35]);
+    hold on; scatter(lon_area, star(starshift+1:starshift+size(lon_area,1),1), 'k','*');
+    hold on;plot(long,lat,'black');axis([133 140 28 35.5]); 
+    title(i+1992);
+    drawnow;
+    %hold off; 
+    starshift = starshift + size(lon_area,1);
+end
+
+
+s = strcat('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar+'/sshindex_new.mat');
+save(s,'index_ssh','ts_ssh');
+
