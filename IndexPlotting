@@ -1,0 +1,71 @@
+%timeseries plotting 
+seasonvar = ["DJF";"MAM"; "JJA";"SON";"Annual"];
+figure(1);set(gcf,'color','w');
+for n = 1:5
+    load('/net/home_stu/ograff/paper/ssh/data/'+seasonvar(n)+'/sshindex_new.mat','ts_ssh');
+    if n == 1
+        timeperiod = "1993-2017";
+    else
+        timeperiod = "1993-2018";
+    end   
+    subplot(5,1,n); 
+    plot(ts_ssh, '-^', 'MarkerFaceColor','r');ylim([-2 0]);
+    xlabel('Years '+timeperiod);ylabel('Δ Latitude');
+    title('Mean Seasonal Meridional Displacement of the Kuroshio Axis - SSH - (133-140; '+seasonvar(n)+')');
+    clear ts_ssh
+end
+
+%monthly plotting 
+monthvar = ["January";"February";"December";"June";"July";"August"];
+aa_monthvar = ["jan";"feb"; "dec";"june";"july";"august"];
+timeperiod = "1993-2018";
+
+figure(2);set(gcf,'color','w');
+for n = 1:6
+    load('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar(n)+'/sshindex_new.mat','ts_ssh');
+    subplot(6,1,n); 
+    plot(ts_ssh, '-^', 'MarkerFaceColor','r');ylim([-2 0]);
+    xlabel('Years '+timeperiod);ylabel('Δ Latitude');
+    title('Mean Seasonal Meridional Displacement of the Kuroshio Axis - SSH - (133-140; '+monthvar(n)+')');
+    clear ts_ssh
+end
+
+%D, J, F, DJF
+monthvar = ["January";"February"; "December";"DJF"];%;"June";"July";"August"];
+aa_monthvar = ["jan";"feb"; "dec";"DJF"];%"june";"july";"august"];
+timeperiod = "1993-2018";
+
+figure(3);set(gcf,'color','w');
+for n = 1:4
+    load('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar(n)+'/sshindex_new.mat','ts_ssh');
+    if aa_monthvar(n) == "DJF"
+        timeperiod = "1993-2017";
+    else
+        timeperiod = "1993-2018";
+    end 
+    subplot(4,1,n); 
+    plot(ts_ssh, '-^', 'MarkerFaceColor','r');ylim([-2 0]);
+    xlabel('Years '+timeperiod);ylabel('Δ Latitude');
+    title('Mean Seasonal Meridional Displacement of the Kuroshio Axis - SSH - (133-140; '+monthvar(n)+')');
+    clear ts_sst
+end
+
+%JFMND
+monthvar = ["January";"February";"March";"November";"December";];
+aa_monthvar = ["jan";"feb";"mar";"nov"; "dec"];
+timeperiod = "1993-2018";
+
+figure(3);set(gcf,'color','w');
+for n = 1:5
+    load('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar(n)+'/sshindex_new.mat','ts_ssh');
+    if aa_monthvar(n) == "DJF"
+        timeperiod = "1993-2017";
+    else
+        timeperiod = "1993-2018";
+    end 
+    subplot(5,1,n); 
+    plot(ts_ssh, '-^', 'MarkerFaceColor','r');ylim([-2 0]);
+    xlabel('Years '+timeperiod);ylabel('Δ Latitude');
+    title('Mean Seasonal Meridional Displacement of the Kuroshio Axis - SSH - (133-140; '+monthvar(n)+')');
+    clear ts_sst
+end
