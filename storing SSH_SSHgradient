@@ -1,352 +1,141 @@
-clear all; close all;
-%switch to determine which month/season is being used and/or if it should
-%store as monthly or seasonally 
-djf = 0; mam = 0; jja = 0;son = 0;annual = 0; 
-monthly = 0; 
-march = 1; nov = 0; 
 % project both onto era5 grid0.25 deg. 
 longitude = ncread('/mars/parfitt/era5/surface_variables/1979-01.nc','longitude');
 latitude = ncread('/mars/parfitt/era5/surface_variables/1979-01.nc','latitude');
-
-%slicing data based on which region is being used 
-%region = "wholeregion";
-region = "indexregion";
-if region == "wholeregion"
-    %Whole region once projected onto era5
-    lat_index_start = 181; lat_index_end = 249; %45N - 28N
-    lon_index_start= 533; lon_index_end = 641; %133 - 160 E
-elseif region == "indexregion"
-    %Index region
-    lat_index_start = 219; lat_index_end = 249;
-    lon_index_start= 533; lon_index_end = 561;
-end
-
-lat_area = latitude(lat_index_start:lat_index_end); % 28 to 36N (217:249); 28 to 35.5 (219:249);
-lon_area = longitude(lon_index_start:lon_index_end); % 130 to 145E (521:581); 130 to 141 (521:565); 133-140 (533:561)
-%SSH latitude/longitude, which is later projected onto era5 grid 
 lonSSH = ncread('/home/ograff/copernicus_ssh/2004/01/dt_global_twosat_phy_l4_20040101_vDT2018.nc','longitude');
 latSSH = ncread('/home/ograff/copernicus_ssh/2004/01/dt_global_twosat_phy_l4_20040101_vDT2018.nc','latitude');
 
+load('/net/home_stu/ograff/latlon_wholeregion.mat');
+lat_index_start = 181; lat_index_end = 249; %45N - 28N
+lon_index_start= 533; lon_index_end = 641; %133 - 160 E
+    
+%Note: Index region: lat: 28 to 35.5; lon: 133-140
+monthvar = ["jan";"feb";"mar";"nov"; "dec"];
+m = ["01";"02";"03";"11";"12"];
+lenmonth = [31;29;31;30;31];
 
-%%
-%Opening and reading the files
+% monthvar = ["jun";"jul";"aug"];
+% m = ["06";"07";"08"];
+% lenmonth = [30;31;31];
+
 dd = ["01"; "02"; "03"; "04"; "05"; "06"; "07"; "08"; "09"; "10"; "11"; "12";"13";"14";"15";"16";"17";"18";"19";"20";"21"; "22";"23";"24";"25";"26";"27";"28";"29";"30";"31"];
-savevar = 1; 
 yearstart = 1993;yearend = 2018; 
-num_years = yearend-yearstart +1;
-timeperiod = " 1993 - 2018"; 
-
-if djf == 1 
-    m = ["01";"02";"12"];lenmonth = [31,29,31]; %num_years = num_years-1;     
-    aa_monthvar = "DJF";
-    %m = ["12";"01";"02"];lenmonth = [124,124,116]; num_years = num_years-1; 
-elseif mam == 1
-    m = ["03";"04";"05"];lenmonth = [31,30,31]; 
-    aa_monthvar = "MAM";
-elseif jja == 1
-    m = ["06";"07";"08"];lenmonth = [30,31,31]; 
-    aa_monthvar = "JJA";
-elseif son == 1
-    m = ["09";"10";"11"];lenmonth = [30,31,30]; 
-    aa_monthvar = "SON";
-elseif march == 1
-    m = ["03"];lenmonth = [31]; aa_monthvar = "mar";
-elseif nov == 1
-    m = ["11"];lenmonth = [30];aa_monthvar = "nov"; 
-elseif annual == 1
-    m = ["01";"02";"03";"04";"05";"06";"07";"08";"09";"10";"11";"12"];
-    lenmonth = [31,29,31,30,31,30,31,31,30,31,30,31];
-    aa_monthvar = "Annual";
-end
-
-time_size = num_years;
-moend = cumsum(lenmonth);lenseason = moend(end);mostart = [1,moend(1)+1, moend(2)+1];
+time_size = yearend-yearstart +1;
 nonleap_feb = 28; 
-ssh = NaN*zeros(size(lon_area,1),size(lat_area,1),num_years*lenseason); 
-sshvar = 'adt';
-monthcount = 0; 
-ndays = 0;
-missingfile = [];
 
-for year = yearstart:yearend
-    file1 = '/home/ograff/copernicus_ssh/';
-    file2 = num2str(year);
-    for month=1:length(m)
-        monthcount = monthcount +1
+
+for mo = 1:size(monthvar)    
+    mo
+    ssh = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size,lenmonth(mo));
+    ssh3d = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size*lenmonth(mo));
+    permonthmean_ssh = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
+    missingfile = [];
+    ndays = 0;
+    %open each daily file and store in variable
+    for year = yearstart:yearend
+        year
+        file1 = '/home/ograff/copernicus_ssh/';
+        file2 = num2str(year);
         file3 = '/dt_global_twosat_phy_l4_';
-        file4 =m(month);
-        file7='/';
-        for day=1:lenmonth(month)
+        file4 =m(mo);
+        file7='/';        
+        for day=1:lenmonth(mo)
             ndays=ndays+1;
             file6='_vDT2018.nc';
             file7='/';
-            file8=dd(day);
+            file8=dd(day);          
             a=strcat(file1,file2,file7,file4,file3,file2,file4,file8,file6);
-            if mod(year,4) >= 0 && m(month) == "02" && day == 29 %if its not a leap year
-                    ssh(:,:,ndays) = NaN; 
-                    continue; %get out of 29th -- no file to open            
+            if mod(year,4) >= 0 && m(mo) == "02" && day == 29%if its not a leap year
+                ssh(:,:,year-1992,day) = NaN;
+                ssh3d(:,:,ndays) = NaN;
+                continue; %get out of 29th -- no file to open
             elseif ~isfile(a)
-                ssh(:,:,ndays) = NaN; 
+                ssh(:,:,year-1992,day) = NaN;
+                ssh3d(:,:,ndays) = NaN;
                 missingfile = [missingfile; strcat(file2,file4,file8)];
                 continue;
             end
-            ssh_temp = ncread(a,'adt'); ssh_temp = 100*ssh_temp;%m to cm 
-            %interpolate to era 5 grid 
+            ssh_temp = ncread(a,'adt'); ssh_temp = 100*ssh_temp;%m to cm
+            %interpolate to era 5 grid
             [Latssh,Lonssh] = meshgrid(90:-0.25:-90,0:0.25:359.75);
             ssh_interp = interp2(lonSSH,latSSH,ssh_temp',Lonssh, Latssh);
-            ssh(:,:,ndays) = ssh_interp(lon_index_start:lon_index_end,lat_index_start:lat_index_end,:);      
-        end 
+            ssh(:,:,year-1992,day) = ssh_interp(lon_index_start:lon_index_end,lat_index_start:lat_index_end,:);
+            ssh3d(:,:,ndays) = ssh_interp(lon_index_start:lon_index_end,lat_index_start:lat_index_end,:);   
+            
+        end
+        %calculate and store monthly mean
+        b = squeeze(ssh(:,:,year-1992,:));
+        permonthmean_ssh(:,:,year-1992) = nanmean(b,3); 
         fclose("all");
     end
+    %save variables
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshdata/',monthvar(mo),'_ssh_wholeregion.mat');
+    save(s,'ssh','ssh3d','permonthmean_ssh');
+    
+    %slice/save variables to kuroshio index region
+    ssh = ssh(1:29,39:69,:,:);
+    ssh3d = ssh3d(1:29,39:69,:);
+    permonthmean_ssh = permonthmean_ssh(1:29,39:69,:,:);
+   
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshdata/',monthvar(mo),'_ssh_indexregion.mat');
+    save(s,'ssh','ssh3d','permonthmean_ssh');   
+ 
 end
 
-%formatting djf correctly -- getting rid of the first jan/feb and last dec
-if djf == 1 && monthly == 0
-    %remove first jan/feb, and last december
-    %first jan and feb = indecies 1:61; then last december
-    ssh = ssh(:,:,61:size(ssh,3)-31);
-    lenmonth = [31,31,29]; %reformatting to be D J F 
-    time_size = time_size -1; %one less season for DJF
-end
 
-%formatting seasonally 
-ssh_reformat = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size,lenseason); 
-b = 0; 
-for n = 1:time_size
-    ssh_reformat(:,:,n,1:lenseason) = ssh(:,:,b+1:b+lenseason);
-    b = b+lenseason; 
-end
-
-%Finding the per season mean monthly/seasonally. This can be done in a much
-%easier way - but I had to go back and do this last minute and chose the
-%brut force method. 
-if monthly == 1 && jja == 1
-    ssh_june = ssh_reformat(:,:,:,1:30); 
-    ssh_july = ssh_reformat(:,:,:,31:61);
-    ssh_aug = ssh_reformat(:,:,:,62:92);
-    perseasonmean_sshjune = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshjuly = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshaug = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
+%SSH gradient
+for mo = 1:size(monthvar)
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshdata/',monthvar(mo),'_ssh_wholeregion.mat');load(s,'ssh');
+    sshgrad = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size,lenmonth(mo));
+    sshgrad3d = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size*lenmonth(mo));
+    count = 0;
+    %calculate ssh gradient
     for n = 1:time_size
-        a = squeeze(ssh_june(:,:,n,:));
-        perseasonmean_sshjune(:,:,n) = nanmean(a,3);
-        a = squeeze(ssh_july(:,:,n,:));
-        perseasonmean_sshjuly(:,:,n) = nanmean(a,3);
-        a = squeeze(ssh_aug(:,:,n,:));
-        perseasonmean_sshaug(:,:,n) = nanmean(a,3);
+        dummyssh = squeeze(ssh(:,:,n,:));
+        for nn = 1:lenmonth(mo)
+            count = count +1;
+            [climagradY,climagradX] = gradient(squeeze(ssh(:,:,n,nn)));
+            dy = 6371000*0.25*pi/180; %0.25 resolution
+            climagradY = climagradY/dy;
+            for j = 1:size(lat_area,1)
+                dx = 6371000*cosd(lat_area(j))*0.25*pi/180; %0.25 resolution
+                climagradX(:,j)=climagradX(:,j)/dx;
+            end
+            %climategradient=sqrt((climagradX.*climagradX)+(climagradY.*climagradY));
+            dummyssh(:,:,nn) = sqrt((climagradX.*climagradX)+(climagradY.*climagradY));
+            sshgrad3d(:,:,count) = sqrt((climagradX.*climagradX)+(climagradY.*climagradY));
+        end
+        sshgrad(:,:,n,1:lenmonth(mo)) = dummyssh;
     end
-elseif monthly == 1 && djf == 1
-    ssh_jan = ssh_reformat(:,:,:,1:31); 
-    ssh_feb = ssh_reformat(:,:,:,32:60);
-    ssh_dec = ssh_reformat(:,:,:,61:91);
-    perseasonmean_sshdec = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshjan = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshfeb = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
+    %cm/m -> cm/km
+    sshgrad = sshgrad.*1000;
+    sshgrad3d = sshgrad3d.*1000;
+    
+    %calculate and store monthly mean
+    permonthmean_sshgrad = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
     for n = 1:time_size
-        a = squeeze(ssh_dec(:,:,n,:));
-        perseasonmean_sshdec(:,:,n) = nanmean(a,3);
-        a = squeeze(ssh_jan(:,:,n,:));
-        perseasonmean_sshjan(:,:,n) = nanmean(a,3);
-        a = squeeze(ssh_feb(:,:,n,:));
-        perseasonmean_sshfeb(:,:,n) = nanmean(a,3);
+        a = squeeze(sshgrad(:,:,n,:));
+        permonthmean_sshgrad(:,:,n) = nanmean(a,3);
     end
     
-else
-    perseasonmean_ssh = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    for n = 1:time_size
-        a = squeeze(ssh_reformat(:,:,n,:));
-        perseasonmean_ssh(:,:,n) = nanmean(a,3);
-    end
+    %save variables
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshgraddata/',monthvar(mo),'_sshgrad_wholeregion.mat');
+    save(s,'sshgrad','sshgrad3d','permonthmean_sshgrad');
+    
+    sshgrad = sshgrad(1:29,39:69,:,:);
+    sshgrad3d = sshgrad3d(1:29,39:69,:);
+    permonthmean_sshgrad = permonthmean_sshgrad(1:29,39:69,:,:);
+    
+    %slice/save variables to kuroshio index region
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshgraddata/',monthvar(mo),'_sshgrad_indexregion.mat');
+    save(s,'sshgrad','sshgrad3d','permonthmean_sshgrad');
 end
 
-%checking to make sure the data looks correct. 
-load coast; 
-figure(1); 
-for n = 1:time_size
-pcolor(lon_area,lat_area, perseasonmean_ssh(:,:,n)'); shading interp; colorbar; 
-hold on; plot(long, lat,'k'); %axis([133 140 28 35.5]);
-drawnow;
-hold off; 
-end
-
-%slicing down the annual matrix so that it can save in smaller form
-% if annual == 1
-%     ssh_reformat_7998 = ssh_reformat(:,:,1:20,:); 
-%     ssh_reformat_9918 = ssh_reformat(:,:,21:40,:); 
-%     ssh_7998 = ssh(:,:,1:7280); 
-%     ssh_9918 = ssh(:,:,7281:14560); 
+% %sanity checking data
+%   lon2 = lon_area(1:29,1);
+%   lat2 = lat_area(39:69,1);
+% figure; 
+% for n = 1:26    
+%     
+%     pcolor(lon2,lat2,permonthmean_sshgrad(:,:,n)'); shading interp; colorbar;
+%     drawnow; 
 % end
-
-%saving variables for later use 
-
-if savevar == 1 && monthly == 0
-%     if annual == 1 && region == "wholeregion" 
-%         s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh_wholeregion.mat');
-%         save(s,'ssh_reformat_7998','ssh_reformat_9918','ssh_7998','ssh_9918','perseasonmean_ssh');
-    if region == "wholeregion"
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh_wholeregion.mat');
-        save(s,'ssh','ssh_reformat','perseasonmean_ssh');
-    else 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh.mat');
-        save(s,'ssh','ssh_reformat','perseasonmean_ssh');
-    end
-
-end
-
-if savevar == 1 && monthly ==1
-   if jja ==1
-        %june
-        aa_monthvar = "june"; perseasonmean_ssh = perseasonmean_sshjune; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh.mat');
-        save(s,'ssh_reformat','perseasonmean_ssh');
-        %july
-        aa_monthvar = "july"; perseasonmean_ssh = perseasonmean_sshjuly; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh.mat');
-        save(s,'ssh_reformat','perseasonmean_ssh');
-         %august
-        aa_monthvar = "august"; perseasonmean_ssh = perseasonmean_sshaug; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh.mat');
-        save(s,'ssh_reformat','perseasonmean_ssh');
-        
-   elseif  djf ==1
-        aa_monthvar = "dec"; perseasonmean_ssh = perseasonmean_sshdec; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh.mat');
-        save(s,'ssh_reformat','perseasonmean_ssh');
-        aa_monthvar = "jan"; perseasonmean_ssh = perseasonmean_sshjan; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh.mat');
-        save(s,'ssh_reformat','perseasonmean_ssh');
-        aa_monthvar = "feb"; perseasonmean_ssh = perseasonmean_sshfeb; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/ssh.mat');
-        save(s,'ssh_reformat','perseasonmean_ssh');
-   end
-end
-
-
-
-%% SSH gradient 
-
-% Calculate sst gradient
-sshgrad_reformat = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size,lenseason); 
-sshgrad = NaN*zeros(size(lon_area,1),size(lat_area,1), 1); 
-count = 0;
-for n = 1:time_size
-    dummyssh = squeeze(ssh_reformat(:,:,n,:));
-    for nn = 1:lenseason
-        count = count +1;
-        [climagradY,climagradX] = gradient(squeeze(ssh_reformat(:,:,n,nn)));
-        dy = 6371000*0.25*pi/180; %0.25 resolution
-        climagradY = climagradY/dy;
-        for j = 1:length(lat_area)
-            dx = 6371000*cosd(lat_area(j))*0.25*pi/180; %0.25 resolution
-            climagradX(:,j)=climagradX(:,j)/dx;
-        end
-        dummyssh(:,:,nn) = sqrt((climagradX.*climagradX)+(climagradY.*climagradY));
-        sshgrad(:,:,count) = sqrt((climagradX.*climagradX)+(climagradY.*climagradY));
-    end
-    sshgrad_reformat(:,:,n,1:lenseason) = dummyssh;
-end
-
-%store in K/km 
-sshgrad_reformat = sshgrad_reformat .*1000.*100; 
-sshgrad = sshgrad.*1000.*100; 
-
-%saving per season mean -- again brute force method 
-if monthly == 1 && jja == 1
-    sshgrad_june = sshgrad_reformat(:,:,:,1:30); 
-    sshgrad_july = sshgrad_reformat(:,:,:,31:61);
-    sshgrad_aug = sshgrad_reformat(:,:,:,62:92);
-    perseasonmean_sshgradjune = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshgradjuly = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshgradaug = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    for n = 1:time_size
-        a = squeeze(sshgrad_june(:,:,n,:));
-        perseasonmean_sshgradjune(:,:,n) = nanmean(a,3);
-        a = squeeze(sshgrad_july(:,:,n,:));
-        perseasonmean_sshgradjuly(:,:,n) = nanmean(a,3);
-        a = squeeze(sshgrad_aug(:,:,n,:));
-        perseasonmean_sshgradaug(:,:,n) = nanmean(a,3);
-    end
-elseif monthly == 1 && djf == 1
-    sshgrad_jan = sshgrad_reformat(:,:,:,1:31); 
-    sshgrad_feb = sshgrad_reformat(:,:,:,32:60);
-    sshgrad_dec = sshgrad_reformat(:,:,:,61:91);
-    perseasonmean_sshgraddec = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshgradjan = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    perseasonmean_sshgradfeb = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    for n = 1:time_size
-        a = squeeze(sshgrad_dec(:,:,n,:));
-        perseasonmean_sshgraddec(:,:,n) = nanmean(a,3);
-        a = squeeze(sshgrad_jan(:,:,n,:));
-        perseasonmean_sshgradjan(:,:,n) = nanmean(a,3);
-        a = squeeze(sshgrad_feb(:,:,n,:));
-        perseasonmean_sshgradfeb(:,:,n) = nanmean(a,3);
-    end
-else
-    perseasonmean_sshgrad = NaN*zeros(size(lon_area,1),size(lat_area,1),time_size);
-    for n = 1:time_size
-        a = squeeze(sshgrad_reformat(:,:,n,:));
-        perseasonmean_sshgrad(:,:,n) = nanmean(a,3);
-    end
-end
-
-
-%saving smaller variables for annual.  
-% if annual == 1
-%     sstgrad_reformat_7998 = sshgrad_reformat(:,:,1:20,:); 
-%     sstgrad_reformat_9918 = sshgrad_reformat(:,:,21:40,:); 
-%     sstgrad_7998 = sshgrad(:,:,1:7280); 
-%     sstgrad_9918 = sshgrad(:,:,7281:14560); 
-% end
-
-%checking overall data quality 
-figure(7);
-for n = 1:time_size
-pcolor(lon_area,lat_area,perseasonmean_sshgrad(:,:,n)'); shading flat; colorbar;caxis([0 140]);% axis([130 145 28 36]);
-hold on;[C,h] = contour(lon_area, lat_area, perseasonmean_ssh(:,:,n)','LineStyle', '-','LineColor','black', 'LineWidth',2); shading flat; colorbar; clabel(C,h);%axis([130 145 28 36]);%axis([125 180 26 50]);
-plot(long,lat,'black');axis([133 140 28 35.5]);title(n+1992)
-drawnow; 
-hold off; 
-end
-
-%Saving variables for later use 
-if savevar == 1 && monthly == 0
-%     if annual == 1 && region == "wholeregion"
-%         s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient_wholeregion.mat');
-%         save(s,'sshgrad_reformat_7998','sshgrad_reformat_9918','sshgrad_7998','sshgrad_9918','perseasonmean_sshgrad');
-    if region == "wholeregion"
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient_wholeregion.mat');
-        save(s,'sshgrad','sshgrad_reformat','perseasonmean_sshgrad');
-    else
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient.mat');
-        save(s,'sshgrad','sshgrad_reformat','perseasonmean_sshgrad');
-    end
-end
-
-
-if savevar == 1 && monthly ==1
-   if jja ==1
-        %june
-        aa_monthvar = "june"; perseasonmean_sshgrad = perseasonmean_sshgradjune; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient.mat');
-        save(s,'sshgrad_reformat','perseasonmean_sshgrad');
-        %july
-        aa_monthvar = "july"; perseasonmean_sshgrad = perseasonmean_sshgradjuly; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient.mat');
-        save(s,'sshgrad_reformat','perseasonmean_sshgrad');
-         %august
-        aa_monthvar = "august"; perseasonmean_sshgrad = perseasonmean_sshgradaug; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient.mat');
-        save(s,'sshgrad_reformat','perseasonmean_sshgrad');
-        
-   elseif  djf ==1
-        aa_monthvar = "dec"; perseasonmean_sshgrad = perseasonmean_sshgraddec; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient.mat');
-        save(s,'sshgrad_reformat','perseasonmean_sshgrad');
-        aa_monthvar = "jan"; perseasonmean_sshgrad = perseasonmean_sshgradjan; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient.mat');
-        save(s,'sshgrad_reformat','perseasonmean_sshgrad');
-        aa_monthvar = "feb"; perseasonmean_sshgrad = perseasonmean_sshgradfeb; 
-        s = strcat('/net/home_stu/ograff/paper/ssh/data/',aa_monthvar,'/sshgradient.mat');
-        save(s,'sshgrad_reformat','perseasonmean_sshgrad');
-   end
-end
