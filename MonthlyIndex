@@ -1,100 +1,90 @@
-%Can easily be programmed to do this in a loop 
 clear all; close all;
 load('/net/home_stu/ograff/latlon_index.mat'); 
 load('/net/home_stu/ograff/bathymetry_index.mat'); 
-%switches to determine which month to use 
-jan = 0; feb = 0; dec = 0; june = 0; july = 0; aug = 0; mar = 0; nov = 1;
 
-% djf = 1; mam = 0; jja = 0;son = 0;annual = 0; 
-savevar = 1; 
+monthvar = ["jan";"feb";"mar";"nov"; "dec"];
+monthvarplotting = ["January";"February";"March";"November";"December"];
 
-%month = [1,2,3]; 
+% monthvar = ["jun";"jul";"aug"];
+% monthvarplotting = ["June";"July";"August";];
+
 yearstart = 1993;yearend = 2018; 
-num_years = yearend-yearstart +1;
+time_size = yearend-yearstart +1;
 timeperiod = " 1993 - 2018"; 
 
-if jan == 1 
-    lenmonth = 31;
-    aa_monthvar = "jan";
-elseif feb == 1
-    lenmonth = 29; 
-    aa_monthvar = "feb";
-elseif dec == 1
-    lenmonth = 31;
-    aa_monthvar = "dec";
-elseif june == 1
-    lenmonth = 30;
-    aa_monthvar = "june";
-elseif july == 1
-    lenmonth = 31;
-    aa_monthvar = "july";
-elseif aug == 1
-    lenmonth = 31;
-    aa_monthvar = "august";
-elseif mar == 1
-    lenmonth = 31; aa_monthvar = "mar";
-elseif nov ==1
-    lenmonth = 30; aa_monthvar = "nov"; 
+for mo = 1:size(monthvar,1)
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshdata/',monthvar(mo),'_ssh_indexregion.mat');load(s,'permonthmean_ssh');
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshgraddata/',monthvar(mo),'_sshgrad_indexregion.mat');load(s,'permonthmean_sshgrad');
     
-end
-
-time_size = num_years;
-
-load('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar+'/ssh.mat','perseasonmean_ssh'); 
-load('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar+'/sshgradient.mat','perseasonmean_sshgrad'); 
-
-%Bathymetry contour 
-[c,~] = contour(lon_area,lat_area,elev',[-1000 -1000],'LineStyle','none');
-
-%  Index 
-index_ssh=[];
-star = [];
-for i = 1:time_size
-    ssh_index_temp = [];
-    B = [];
-    for n = 1:max(size(lon_area))
-        %Finds the latitudinal location maximum ssh gradient 
-        max_lat = find(perseasonmean_sshgrad(n,:,i) == (max(perseasonmean_sshgrad(n,:,i))));
-        lm = lat_area(max_lat);
-        x = max(size(max_lat));
-        %matrix of max latitudes for each longitude
-        ssh_index_temp = [ssh_index_temp;lm(1:x)];
-        star = [star;lm(1:x)];
-        %Bathymetry
-        val = find(c(1,:) == lon_area(n,:)); %returns indexes of numbers
-        maxlat = find(c(2,val) == max(c(2,val)));%returns which index gives max lat
-        % need to store c(2,val(whatever index maxlat says it is))
-        latchoose= c(2,val(maxlat));
-        x1 = max(size(maxlat));
-        B = [B;latchoose];
+    %Bathymetry contour
+    figure(1);
+    [c,~] = contour(lon_area,lat_area,elev',[-250 -250],'LineStyle','none');
+    
+    %  Index
+    index_ssh=[];
+    star = [];
+    for i = 1:time_size
+        ssh_index_temp = [];
+        B = [];
+        for n = 1:max(size(lon_area))
+            %Finds the latitudinal location maximum ssh gradient
+            max_lat = find(permonthmean_sshgrad(n,:,i) == (max(permonthmean_sshgrad(n,:,i))));
+            lm = lat_area(max_lat);
+            x = max(size(max_lat));
+            %matrix of max latitudes for each longitude
+            ssh_index_temp = [ssh_index_temp;lm(1:x)];
+            star = [star;lm(1:x)];
+            val = find(c(1,:) == lon_area(n,:)); %returns which longitude value the loop is on f
+            maxlat = find(c(2,val) == max(c(2,val)));%returns the latitude value of of where the maximum ssh gradient is at the particular longitude point
+            latchoose= c(2,val(maxlat));
+            x1 = max(size(maxlat));
+            B = [B;latchoose];%stores lat values
+        end
+        latdiffssh = 0;
+        latdiffssh = ssh_index_temp-B;%latitudinal degree difference between the bathymetry line and the max ssh gradient
+        index_ssh = [index_ssh;mean(latdiffssh,1)];
     end
-    latdiffssh = 0;
-    latdiffssh = ssh_index_temp-B;
-    index_ssh = [index_ssh;mean(latdiffssh,1)];
-end
-%plot the time series
-figure(2); 
-ts_ssh = timeseries(index_ssh(:,1),yearstart:yearend);     
-%subplot(4,1,4);
-plot(ts_ssh, '-^', 'MarkerFaceColor','r');ylim([-2 0]);
-xlabel('Years '+timeperiod);ylabel('Δ Latitude');title('Mean Seasonal Meridional Displacement of the Kuroshio Axis - SSH - (133-140; '+aa_monthvar+')');
-
-%for plotting 
-starshift = 0;
-figure(14);
-load coast;
-for i = 1:num_years
     
-    hold on;pcolor(lon_area,lat_area,perseasonmean_sshgrad(:,:,i)'); shading flat; colorbar;caxis([0 140]);% axis([130 145 28 36]);
-    hold on;[C,h] = contour(lon_area,lat_area,perseasonmean_ssh(:,:,i)','LineStyle', '-','LineColor','black', 'LineWidth',2); shading flat; colorbar; clabel(C,h);%axis([130 145 28 36]);%axis([125 180 26 50]);
-    hold on;[C,h] = contour(lon_area,lat_area,elev', [-1000 -1000], 'r-','LineWidth',5); shading flat;%clabel(C,h);%plot(long,lat,'black');% axis([310 325 28 35]);
-    hold on; scatter(lon_area, star(starshift+1:starshift+size(lon_area,1),1), 'k','*');
-    hold on;plot(long,lat,'black');axis([133 140 28 35.5]); 
-    title(i+1992);
-    drawnow;
-    starshift = starshift + size(lon_area,1);
+    %plot the time series
+    figure(2);set(gcf,'color','w');
+    subplot(5,1,mo);
+    ts_ssh = timeseries(index_ssh(:,1),yearstart:yearend);
+    %subplot(4,1,4);
+    plot(ts_ssh, '-^', 'MarkerFaceColor','r');ylim([-2.25 0]);
+    ntitle('   '+monthvarplotting(mo),'FontWeight','bold','Location','northwest');
+    if mo == 1
+        title('Mean Seasonal Meridional Displacement of the Kuroshio Axis - SSH - (133°E - 140°E)','FontWeight','bold' ...
+            ,'FontName', 'Times New Roman','FontSize',16);
+        xlabel(' ');
+    elseif mo == size(monthvar,1)
+        xlabel('Years '+timeperiod); title(' ');
+    else
+        title(' '); xlabel(' ');
+    end
+    ylabel('Δ Latitude');
+    %saves variabels
+    s = strcat('/net/home_stu/ograff/chapter1/data/sshindex_9318/',monthvar(mo),'_sshindex.mat');
+    save(s,'star','index_ssh','ts_ssh');
 end
 
-%Save variables for future use 
-s = strcat('/net/home_stu/ograff/paper/ssh/data/'+aa_monthvar+'/sshindex_new.mat');
-save(s,'index_ssh','ts_ssh');
+
+
+
+% %sanity checking
+% starshift = 0;
+% figure(14);
+% load coast;
+% for i = 1:time_size
+%     hold on;pcolor(lon_area,lat_area,permonthmean_sshgrad(:,:,i)'); shading flat; colorbar;caxis([0 1.2]);% axis([130 145 28 36]);
+%     hold on;[C,h] = contour(lon_area,lat_area,permonthmean_ssh(:,:,i)','LineStyle', '-','LineColor','black', 'LineWidth',2); shading flat; colorbar; clabel(C,h);%axis([130 145 28 36]);%axis([125 180 26 50]);
+%     hold on;[C,h] = contour(lon_area,lat_area,elev', [-250 -250], 'r-','LineWidth',5); shading flat;%clabel(C,h);%plot(long,lat,'black');% axis([310 325 28 35]);
+%     hold on; scatter(lon_area, star(starshift+1:starshift+size(lon_area,1),1), 'k','*');
+%     hold on;plot(long,lat,'black');axis([133 140 28 35.5]); 
+%     title(i+1992);
+%     drawnow;
+%     hold off; 
+%     starshift = starshift + size(lon_area,1);
+% end
+
+
+
