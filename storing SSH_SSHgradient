@@ -44,7 +44,7 @@ for mo = 1:size(monthvar)
             file7='/';
             file8=dd(day);          
             a=strcat(file1,file2,file7,file4,file3,file2,file4,file8,file6);
-            if mod(year,4) >= 0 && m(mo) == "02" && day == 29%if its not a leap year
+            if mod(year,4) > 0 && m(mo) == "02" && day == 29%if its not a leap year
                 ssh(:,:,year-1992,day) = NaN;
                 ssh3d(:,:,ndays) = NaN;
                 continue; %get out of 29th -- no file to open
